@@ -1,0 +1,7 @@
+{
+  "name": "HAMIC'S PHOTOBOOTH",
+  "description": "A feature-rich 4-cut web photobooth that simulates a professional photobooth experience. It includes custom frames, a time-lapse feature, and instant QR code sharing via Firebase integration.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
