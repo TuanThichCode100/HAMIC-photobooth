@@ -1,4 +1,3 @@
-// FIX: Provide implementation for WebcamView component to resolve module errors.
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 interface WebcamViewProps {
@@ -40,7 +39,7 @@ export const WebcamView = forwardRef<HTMLVideoElement, WebcamViewProps>(({ count
   }, []);
 
   return (
-    <div className="relative w-full max-w-4xl aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
+    <div className="relative w-full max-w-3xl aspect-video bg-black rounded-lg overflow-hidden shadow-lg">
       <video
         ref={videoRef}
         autoPlay
