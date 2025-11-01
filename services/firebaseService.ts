@@ -1,11 +1,9 @@
-
-import { initializeApp, FirebaseApp } from "firebase/app";
-import { getAuth, signInAnonymously } from "firebase/auth";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { getFirestore, collection, addDoc } from "firebase/firestore";
+import { initializeApp, getApp, getApps, FirebaseApp } from "firebase/app";
+import { getAuth, signInAnonymously, Auth } from "firebase/auth";
+import { getStorage, ref, uploadBytes, getDownloadURL, FirebaseStorage } from "firebase/storage";
+import { getFirestore, collection, addDoc, Firestore } from "firebase/firestore";
 import type { PhotoFrame } from "../types";
 
-// FIX: Export the FirebaseConfig type to resolve an import error in ApiKeyModal.tsx.
 export interface FirebaseConfig {
   apiKey: string;
   authDomain: string;
@@ -16,84 +14,52 @@ export interface FirebaseConfig {
   measurementId: string;
 }
 
-// The user's Firebase configuration is now hardcoded into the application.
 const firebaseConfig: FirebaseConfig = {
   apiKey: "AIzaSyCwTd9Hv7rNPAduVQZ02icx5-EytbR8w-U",
   authDomain: "hamic-s-photobooth.firebaseapp.com",
   projectId: "hamic-s-photobooth",
-  // Corrected storageBucket format for better compatibility.
   storageBucket: "hamic-s-photobooth.appspot.com",
   messagingSenderId: "764540927",
   appId: "1:764540927:web:64aab1aebe9e9cf8f3d9ca",
-  measurementId: "G-54V4W542XL"
+  measurementId: "G-54V4W542XL",
 };
 
+let firebaseApp: FirebaseApp;
+let auth: Auth;
+let storage: FirebaseStorage;
+let db: Firestore;
 
-let firebaseApp: FirebaseApp | null = null;
-let initPromise: Promise<{ success: boolean; error?: string }> | null = null;
+const initPromise = (async () => {
+  try {
+    // 🔥 Đảm bảo không khởi tạo trùng trong chế độ dev HMR
+    firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-export const initializeFirebaseApp = (): Promise<{ success: boolean; error?: string }> => {
-  if (initPromise) {
-    return initPromise;
+    // Gắn các service đúng instance
+    auth = getAuth(firebaseApp);
+    storage = getStorage(firebaseApp);
+    db = getFirestore(firebaseApp);
+
+    await signInAnonymously(auth);
+    console.log("Firebase initialized and signed in anonymously.");
+  } catch (error) {
+    console.error("Firebase initialization failed:", error);
+    throw error;
   }
+})();
 
-  initPromise = (async (): Promise<{ success: boolean; error?: string }> => {
-    if (firebaseApp) return { success: true };
-
-    try {
-      firebaseApp = initializeApp(firebaseConfig);
-      
-      const auth = getAuth(firebaseApp);
-      await signInAnonymously(auth);
-
-      console.log("Firebase initialized and user signed in anonymously.");
-      return { success: true };
-    } catch (error: any) {
-      console.error("Failed to initialize Firebase and sign in:", error);
-      let userFriendlyError: string;
-
-      if (error.code === 'auth/configuration-not-found') {
-        userFriendlyError = `ACTION REQUIRED: The current domain (${window.location.hostname}) is not authorized for Firebase Authentication. Please add it to the list of authorized domains in your Firebase project settings (Authentication -> Settings -> Authorized domains).`;
-      } else if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/admin-restricted-operation') {
-        userFriendlyError = 'ACTION REQUIRED: Anonymous sign-in is not enabled. Please go to your Firebase Console (Authentication -> Sign-in method) and enable the "Anonymous" provider.';
-      } else {
-        userFriendlyError = `An unexpected Firebase error occurred: ${error.message}`;
-      }
-      
-      firebaseApp = null;
-      return { success: false, error: userFriendlyError };
-    }
-  })();
-  
-  initPromise.then(result => {
-    if (!result.success) {
-      initPromise = null; // Allow retrying if it fails.
-    }
-  });
-
-  return initPromise;
-};
-
+export const getFirebaseInitializationPromise = () => initPromise;
 
 export const uploadImageAndGetData = async (
   blob: Blob,
-  frame: Pick<PhotoFrame, 'topic' | 'number'>
+  frame: Pick<PhotoFrame, "topic" | "number">
 ): Promise<string | null> => {
-  if (!initPromise) {
-     console.error("Firebase initialization has not been attempted.");
-     alert("Firebase is not configured. Please refresh and check the configuration.");
-     return null;
-  }
-  const initResult = await initPromise;
-  if (!initResult.success || !firebaseApp) {
-    console.error("Firebase not initialized. Cannot upload image.");
-    alert(`Firebase connection failed. This might be a configuration issue or a network problem. Error: ${initResult.error}`);
+  try {
+    await initPromise;
+  } catch (e) {
+    console.error("Cannot upload: Firebase not initialized.");
     return null;
   }
 
-  const storage = getStorage(firebaseApp!);
-  const db = getFirestore(firebaseApp!);
-  
   const uniqueId = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
   const fileName = `photobooth-${uniqueId}.png`;
   const storageRef = ref(storage, `uploads/${fileName}`);
@@ -104,17 +70,16 @@ export const uploadImageAndGetData = async (
 
     await addDoc(collection(db, "photobooth_uploads"), {
       storagePath: snapshot.ref.fullPath,
-      downloadURL: downloadURL,
+      downloadURL,
       createdAt: new Date(),
       frameTopic: frame.topic,
       frameNumber: frame.number,
     });
 
     return downloadURL;
-
   } catch (error) {
     console.error("Error uploading image:", error);
-    alert("Image upload failed. Please check your Firebase Storage rules and ensure the service is active.");
+    alert("Image upload failed. Please check your Firebase Storage rules.");
     return null;
   }
 };

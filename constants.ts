@@ -14,7 +14,7 @@ const commonCoords: FrameCoord[] = [
     { x: 50, y: 1020, w: 500, h: 280 },
 ];
 
-const createFrameDataUrl = (text: string, bgColor: string, textColor: string): string => {
+const createFrameDataUrl = (bgColor: string): string => {
     const canvas = document.createElement('canvas');
     const width = 600;
     const height = 1440;
@@ -32,11 +32,8 @@ const createFrameDataUrl = (text: string, bgColor: string, textColor: string): s
     });
     ctx.globalCompositeOperation = 'source-over';
     
-    // Add text to the frame
-    ctx.fillStyle = textColor;
-    ctx.font = 'bold 48px Pacifico, cursive, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(text, width / 2, 80);
+    // Text is no longer drawn on the canvas frame itself.
+    // It will be displayed as a separate element in the UI.
 
     return canvas.toDataURL('image/png');
 };
@@ -44,19 +41,19 @@ const createFrameDataUrl = (text: string, bgColor: string, textColor: string): s
 export const photoboothFrames = [
   {
     topic: "Classic Black",
-    frame_content: createFrameDataUrl('HAMIC', '#000000', '#FFFFFF'),
+    frame_content: createFrameDataUrl('#000000'),
     number: 1,
     coords: commonCoords,
   },
   {
     topic: "Vibrant Red",
-    frame_content: createFrameDataUrl('Photobooth', '#D02C3F', '#FFFFFF'),
+    frame_content: createFrameDataUrl('#D02C3F'),
     number: 2,
     coords: commonCoords,
   },
   {
     topic: "Sunny Yellow",
-    frame_content: createFrameDataUrl('Smile!', '#FDEFB2', '#333333'),
+    frame_content: createFrameDataUrl('#FDEFB2'),
     number: 3,
     coords: commonCoords,
   },

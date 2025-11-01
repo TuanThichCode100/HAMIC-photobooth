@@ -5,7 +5,7 @@ import { Controls } from './components/Controls';
 import { QrCodeModal } from './components/QrCodeModal';
 import { photoboothFrames, FrameCoord } from './constants';
 import { mergePhotosWithFrame } from './services/imageService';
-import { initializeFirebaseApp, uploadImageAndGetData } from './services/firebaseService';
+import { uploadImageAndGetData, getFirebaseInitializationPromise } from './services/firebaseService';
 
 type AppStatus = 'idle' | 'countdown' | 'capturing' | 'processing' | 'finished';
 
@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [countdown, setCountdown] = useState<number | string | null>(null);
   const [finalImageUrl, setFinalImageUrl] = useState<string | null>(null);
+  
   const [isFirebaseReady, setIsFirebaseReady] = useState(false);
   const [firebaseError, setFirebaseError] = useState<string | null>(null);
 
@@ -31,14 +32,20 @@ const App: React.FC = () => {
   const recordedChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
-    const initializeApp = async () => {
-      const { success, error } = await initializeFirebaseApp();
-      setIsFirebaseReady(success);
-      if (error) {
-        setFirebaseError(error);
-      }
-    };
-    initializeApp();
+    // Initialize Firebase when the app loads.
+    getFirebaseInitializationPromise()
+      .then(() => {
+        setIsFirebaseReady(true);
+      })
+      .catch((error) => {
+        let userFriendlyError: string;
+        if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/admin-restricted-operation') {
+            userFriendlyError = 'ACTION REQUIRED: Anonymous sign-in is not enabled. Please go to your Firebase Console (Authentication -> Sign-in method) and enable the "Anonymous" provider.';
+        } else {
+            userFriendlyError = `An unexpected Firebase error occurred: ${error.message}`;
+        }
+        setFirebaseError(userFriendlyError);
+      });
   }, []);
 
   const startTimelapse = useCallback(() => {
@@ -132,30 +139,41 @@ const App: React.FC = () => {
       alert("Please take 4 photos first.");
       return;
     }
+
+    // Immediately show the modal in a loading state to provide instant feedback.
+    if (isFirebaseReady) {
+      setFinalImageUrl('loading');
+    }
+    
     setStatus('processing');
     const currentFrame = photoboothFrames[currentFrameIndex];
     
     try {
+      // This part can take a moment, but the user now sees a loading spinner.
       const { blob, dataUrl } = await mergePhotosWithFrame(capturedPhotos, currentFrame.frame_content, currentFrame.coords as FrameCoord[]);
       
-      // Trigger local download
       const link = document.createElement('a');
       link.download = `hamic-photobooth-${currentFrame.topic}.png`;
       link.href = dataUrl;
       link.click();
 
-      // Upload and get QR code URL
       if (isFirebaseReady) {
+        // The modal is already showing 'loading'. Now we wait for the upload.
         const firebaseUrl = await uploadImageAndGetData(blob, currentFrame);
         if (firebaseUrl) {
-          setFinalImageUrl(firebaseUrl);
+          setFinalImageUrl(firebaseUrl); // Update modal with QR code
+        } else {
+          // Upload failed, alert is handled in firebaseService. Close modal.
+          setFinalImageUrl(null);
         }
       } else {
-        alert("Firebase connection failed. The QR code feature is unavailable. Your photo has been saved locally.");
+        // If firebase wasn't ready, the modal was never shown. Just alert.
+        alert("Firebase not configured or failed to initialize. The QR code feature is unavailable. Your photo has been saved locally.");
       }
     } catch (error) {
       console.error("Error during download/upload process:", error);
       alert("An error occurred while processing the image.");
+      setFinalImageUrl(null); // Ensure modal is closed on any error
     } finally {
       setStatus('finished');
     }
@@ -179,7 +197,7 @@ const App: React.FC = () => {
 
       {firebaseError && <FirebaseErrorDisplay message={firebaseError} />}
 
-      <main className="flex flex-col lg:flex-row justify-center items-center lg:items-start gap-8 lg:gap-12 w-full max-w-7xl">
+      <main className="flex flex-col lg:flex-row items-start justify-center gap-8 w-full max-w-7xl">
         <WebcamView 
           ref={videoRef} 
           countdown={countdown} 
@@ -188,6 +206,7 @@ const App: React.FC = () => {
         <PhotoStrip 
           photos={capturedPhotos} 
           frameSrc={photoboothFrames[currentFrameIndex].frame_content} 
+          topic={photoboothFrames[currentFrameIndex].topic}
           onNextTheme={nextTheme}
           onPrevTheme={prevTheme}
           isBusy={isBusy}
