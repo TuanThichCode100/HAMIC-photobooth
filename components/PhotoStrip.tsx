@@ -18,7 +18,7 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, frameSrc, topic,
       <h2 className="text-2xl font-pacifico text-[#FDEFB2] mb-4 text-center h-10">
         {topic}
       </h2>
-      <div className="relative w-full aspect-[5/12] flex-shrink-0">
+      <div className="relative w-full aspect-[500/888] flex-shrink-0">
         <div className="absolute inset-0">
           {previewPositions.map((pos, index) => (
             <div key={index} className={`absolute w-[83.33%] h-[19.44%] bg-gray-800/50 backdrop-blur-sm rounded-lg left-[8.33%] ${pos}`}>
