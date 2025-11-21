@@ -1,10 +1,11 @@
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { WebcamView } from './components/WebcamView';
 import { PhotoStrip } from './components/PhotoStrip';
 import { Controls } from './components/Controls';
 import { QrCodeModal } from './components/QrCodeModal';
 import { photoboothFrames, FrameCoord } from './constants';
-import { mergePhotosWithFrame } from './services/imageService';
+import { mergePhotosWithFrame, calculateFrameLayout } from './services/imageService';
 import { uploadImageAndGetData, getFirebaseInitializationPromise } from './services/firebaseService';
 
 type AppStatus = 'idle' | 'countdown' | 'capturing' | 'processing' | 'finished';
@@ -19,9 +20,12 @@ const FirebaseErrorDisplay: React.FC<{ message: string }> = ({ message }) => (
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>('idle');
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
-  const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   const [countdown, setCountdown] = useState<number | string | null>(null);
   const [finalImageUrl, setFinalImageUrl] = useState<string | null>(null);
+  
+  // State for dynamic frame layout
+  const [activeFrameCoords, setActiveFrameCoords] = useState<FrameCoord[]>([]);
+  const [frameDimensions, setFrameDimensions] = useState<{w: number, h: number}>({ w: 0, h: 0 });
   
   const [isFirebaseReady, setIsFirebaseReady] = useState(false);
   const [firebaseError, setFirebaseError] = useState<string | null>(null);
@@ -30,6 +34,25 @@ const App: React.FC = () => {
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+
+  const currentFrame = photoboothFrames[0];
+
+  // Calculate frame layout dynamically on load
+  useEffect(() => {
+    const analyzeFrame = async () => {
+      try {
+        const layout = await calculateFrameLayout(currentFrame.frame_content);
+        setActiveFrameCoords(layout.coords);
+        setFrameDimensions({ w: layout.width, h: layout.height });
+        console.log("Calculated Frame Layout:", layout);
+      } catch (err) {
+        console.error("Failed to analyze frame:", err);
+        // Fallback to hardcoded if calculation fails (optional, relying on calc here)
+        setActiveFrameCoords(currentFrame.coords); 
+      }
+    };
+    analyzeFrame();
+  }, [currentFrame]);
 
   useEffect(() => {
     // Initialize Firebase when the app loads.
@@ -107,7 +130,10 @@ const App: React.FC = () => {
     setCapturedPhotos([]);
     startTimelapse();
 
-    for (let i = 0; i < 4; i++) {
+    // Use the detected number of slots, or default to 4
+    const numberOfShots = activeFrameCoords.length > 0 ? activeFrameCoords.length : 4;
+
+    for (let i = 0; i < numberOfShots; i++) {
       await new Promise<void>((resolve) => {
         let count = 3;
         setStatus('countdown');
@@ -128,15 +154,15 @@ const App: React.FC = () => {
           }
         }, 1000);
       });
-      if (i < 3) await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (i < numberOfShots - 1) await new Promise((resolve) => setTimeout(resolve, 1000));
     }
     stopTimelapse();
     setStatus('finished');
-  }, [takePhoto, startTimelapse, stopTimelapse]);
+  }, [takePhoto, startTimelapse, stopTimelapse, activeFrameCoords]);
 
   const handleDownload = useCallback(async () => {
-    if (capturedPhotos.length < 4) {
-      alert("Please take 4 photos first.");
+    if (capturedPhotos.length < activeFrameCoords.length) {
+      alert(`Please take ${activeFrameCoords.length} photos first.`);
       return;
     }
 
@@ -146,11 +172,10 @@ const App: React.FC = () => {
     }
     
     setStatus('processing');
-    const currentFrame = photoboothFrames[currentFrameIndex];
     
     try {
-      // This part can take a moment, but the user now sees a loading spinner.
-      const { blob, dataUrl } = await mergePhotosWithFrame(capturedPhotos, currentFrame.frame_content, currentFrame.coords as FrameCoord[]);
+      // Use the dynamically calculated coordinates
+      const { blob, dataUrl } = await mergePhotosWithFrame(capturedPhotos, currentFrame.frame_content, activeFrameCoords);
       
       const link = document.createElement('a');
       link.download = `hamic-photobooth-${currentFrame.topic}.png`;
@@ -158,36 +183,29 @@ const App: React.FC = () => {
       link.click();
 
       if (isFirebaseReady) {
-        // The modal is already showing 'loading'. Now we wait for the upload.
         const firebaseUrl = await uploadImageAndGetData(blob, currentFrame);
         if (firebaseUrl) {
-          setFinalImageUrl(firebaseUrl); // Update modal with QR code
+          setFinalImageUrl(firebaseUrl);
         } else {
-          // Upload failed, alert is handled in firebaseService. Close modal.
           setFinalImageUrl(null);
         }
       } else {
-        // If firebase wasn't ready, the modal was never shown. Just alert.
         alert("Firebase not configured or failed to initialize. The QR code feature is unavailable. Your photo has been saved locally.");
       }
     } catch (error) {
       console.error("Error during download/upload process:", error);
       alert("An error occurred while processing the image.");
-      setFinalImageUrl(null); // Ensure modal is closed on any error
+      setFinalImageUrl(null);
     } finally {
       setStatus('finished');
     }
-  }, [capturedPhotos, currentFrameIndex, isFirebaseReady]);
+  }, [capturedPhotos, isFirebaseReady, activeFrameCoords, currentFrame]);
 
-  const nextTheme = () => setCurrentFrameIndex((prev) => (prev + 1) % photoboothFrames.length);
-  const prevTheme = () => setCurrentFrameIndex((prev) => (prev - 1 + photoboothFrames.length) % photoboothFrames.length);
   const reset = () => {
       setCapturedPhotos([]);
       setStatus('idle');
       setFinalImageUrl(null);
   };
-
-  const isBusy = status === 'countdown' || status === 'capturing' || status === 'processing';
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4 sm:p-8 overflow-x-hidden text-white">
@@ -205,11 +223,10 @@ const App: React.FC = () => {
         />
         <PhotoStrip 
           photos={capturedPhotos} 
-          frameSrc={photoboothFrames[currentFrameIndex].frame_content} 
-          topic={photoboothFrames[currentFrameIndex].topic}
-          onNextTheme={nextTheme}
-          onPrevTheme={prevTheme}
-          isBusy={isBusy}
+          frameSrc={currentFrame.frame_content} 
+          topic={currentFrame.topic}
+          coords={activeFrameCoords}
+          frameDimensions={frameDimensions}
         />
       </main>
 
