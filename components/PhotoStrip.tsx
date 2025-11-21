@@ -1,57 +1,66 @@
+
 import React from 'react';
-import { ArrowUpIcon, ArrowDownIcon } from './icons';
+import { FrameCoord } from '../constants';
 
 interface PhotoStripProps {
   photos: string[];
   frameSrc: string;
   topic: string;
-  onNextTheme: () => void;
-  onPrevTheme: () => void;
-  isBusy: boolean;
+  coords: FrameCoord[];
+  frameDimensions: { w: number, h: number };
 }
 
-export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, frameSrc, topic, onNextTheme, onPrevTheme, isBusy }) => {
-  const previewPositions = ['top-[8.33%]', 'top-[29.17%]', 'top-[50%]', 'top-[70.83%]'];
+export const PhotoStrip: React.FC<PhotoStripProps> = ({ photos, frameSrc, topic, coords, frameDimensions }) => {
+  
+  // Calculate styles for each photo slot based on the frame dimensions
+  const getSlotStyle = (coord: FrameCoord) => {
+    if (!frameDimensions.w || !frameDimensions.h) return {};
+    
+    return {
+        left: `${(coord.x / frameDimensions.w) * 100}%`,
+        top: `${(coord.y / frameDimensions.h) * 100}%`,
+        width: `${(coord.w / frameDimensions.w) * 100}%`,
+        height: `${(coord.h / frameDimensions.h) * 100}%`,
+    };
+  };
 
   return (
     <div className="flex flex-col items-center w-full max-w-xs">
-      <h2 className="text-2xl font-pacifico text-[#FDEFB2] mb-4 text-center h-10">
+      <h2 className="text-2xl font-pacifico text-[#FDEFB2] mb-4 text-center h-10 flex items-center justify-center">
         {topic}
       </h2>
-      <div className="relative w-full aspect-[500/888] flex-shrink-0">
-        <div className="absolute inset-0">
-          {previewPositions.map((pos, index) => (
-            <div key={index} className={`absolute w-[83.33%] h-[19.44%] bg-gray-800/50 backdrop-blur-sm rounded-lg left-[8.33%] ${pos}`}>
-              {photos[index] && (
-                <img src={photos[index]} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
-              )}
-            </div>
-          ))}
+      <div className="relative w-full bg-gray-900 shadow-2xl">
+        {/* Use aspect ratio from frame dimensions if available, else default */}
+        <div 
+            className="relative w-full"
+            style={{ 
+                aspectRatio: frameDimensions.w && frameDimensions.h ? `${frameDimensions.w}/${frameDimensions.h}` : '647.2/1920' 
+            }}
+        >
+          <div className="absolute inset-0">
+            {coords.map((coord, index) => (
+              <div 
+                key={index} 
+                className="absolute bg-gray-800/50 backdrop-blur-sm overflow-hidden"
+                style={getSlotStyle(coord)}
+              >
+                {photos[index] && (
+                  <img src={photos[index]} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
+                )}
+              </div>
+            ))}
+          </div>
+          
+          <img
+            src={frameSrc}
+            alt="Photostrip Background"
+            className="absolute inset-0 w-full h-full z-10 pointer-events-none transition-opacity duration-300"
+          />
         </div>
-        
-        <img
-          src={frameSrc}
-          alt="Photostrip Background"
-          className="absolute inset-0 w-full h-full z-10 pointer-events-none transition-opacity duration-300"
-        />
-
-        <button
-          onClick={onPrevTheme}
-          disabled={isBusy}
-          className="absolute top-[38%] -right-4 md:-right-14 w-12 h-12 bg-[#D02C3F] rounded-full flex items-center justify-center text-white z-20 transition hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Previous Theme"
-        >
-          <ArrowUpIcon />
-        </button>
-        <button
-          onClick={onNextTheme}
-          disabled={isBusy}
-          className="absolute top-[52%] -right-4 md:-right-14 w-12 h-12 bg-[#D02C3F] rounded-full flex items-center justify-center text-white z-20 transition hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-          aria-label="Next Theme"
-        >
-          <ArrowDownIcon />
-        </button>
       </div>
+      {coords.length === 0 && (
+          <p className="text-xs text-gray-400 mt-2">Analyzing frame layout...</p>
+      )}
     </div>
   );
 };
