@@ -5,17 +5,16 @@ import React, { useEffect, useRef } from 'react';
 declare var QRCode: any;
 
 interface QrCodeModalProps {
-  url: string; // The prop can be the actual URL or the string 'loading'
+  url: string;
   onClose: () => void;
 }
 
 export const QrCodeModal: React.FC<QrCodeModalProps> = ({ url, onClose }) => {
   const qrCodeRef = useRef<HTMLDivElement>(null);
-  const isLoading = url === 'loading';
 
   const generateQrCode = () => {
-    if (qrCodeRef.current && typeof QRCode !== 'undefined' && !isLoading) {
-      qrCodeRef.current.innerHTML = ''; // Clear previous QR code or loading indicator
+    if (qrCodeRef.current && typeof QRCode !== 'undefined') {
+      qrCodeRef.current.innerHTML = ''; // Clear previous QR code
       new QRCode(qrCodeRef.current, {
         text: url,
         width: 256,
@@ -28,13 +27,6 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({ url, onClose }) => {
   };
   
   useEffect(() => {
-    if (isLoading) {
-      if (qrCodeRef.current) {
-        qrCodeRef.current.innerHTML = ''; // Clear any existing QR code when going back to loading
-      }
-      return;
-    }
-
     // Dynamically load the qrcode.js script if it's not already there.
     if (!document.getElementById('qrcode-script')) {
         const script = document.createElement('script');
@@ -45,7 +37,7 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({ url, onClose }) => {
     } else {
         generateQrCode();
     }
-  }, [url, isLoading]);
+  }, [url]);
 
   return (
     <div 
@@ -57,21 +49,14 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({ url, onClose }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-2xl font-bold mb-4">
-          {isLoading ? 'Generating Link...' : 'Scan to download your photo!'}
+          Scan to open Drive Folder
         </h3>
-        <div ref={qrCodeRef} className="p-2 bg-white rounded-lg inline-block mb-6 w-[272px] h-[272px] flex items-center justify-center">
-          {isLoading && (
-             <div className="flex flex-col items-center justify-center text-gray-600">
-                <svg className="animate-spin h-12 w-12 text-[#D02C3F]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p className="mt-4 font-semibold">Uploading image...</p>
-                <p className="text-sm text-gray-500">Please wait a moment.</p>
-             </div>
-          )}
-          {/* QR Code will be rendered here by the script when not loading */}
+        <div ref={qrCodeRef} className="p-2 bg-white rounded-lg inline-block mb-6 w-[272px] h-[272px] flex items-center justify-center border-2 border-dashed border-gray-300">
+          {/* QR Code will be rendered here by the script */}
         </div>
+        <p className="text-sm text-gray-500 mb-4">
+           Your photos have been saved to your device. Scan this to open the Google Drive folder.
+        </p>
         <button
           onClick={onClose}
           className="w-full bg-[#D02C3F] text-white py-3 rounded-lg font-bold text-lg transition hover:bg-[#a02332]"
