@@ -8,7 +8,6 @@ interface ControlsProps {
   onStart: () => void;
   onDownload: () => void;
   onReset: () => void;
-  isFirebaseReady: boolean;
 }
 
 const ActionButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
@@ -18,7 +17,7 @@ const ActionButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (p
   />
 );
 
-export const Controls: React.FC<ControlsProps> = ({ status, onStart, onDownload, onReset, isFirebaseReady }) => {
+export const Controls: React.FC<ControlsProps> = ({ status, onStart, onDownload, onReset }) => {
   const isBusy = status === 'countdown' || status === 'capturing' || status === 'processing';
 
   return (
@@ -33,7 +32,7 @@ export const Controls: React.FC<ControlsProps> = ({ status, onStart, onDownload,
         </ActionButton>
       )}
       <ActionButton onClick={onDownload} disabled={status !== 'finished'}>
-        {status === 'processing' ? 'Processing...' : (isFirebaseReady ? 'Save & QR' : 'Save')}
+        {status === 'processing' ? 'Processing...' : 'Save'}
       </ActionButton>
     </div>
   );

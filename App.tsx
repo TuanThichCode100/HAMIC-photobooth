@@ -6,38 +6,46 @@ import { Controls } from './components/Controls';
 import { QrCodeModal } from './components/QrCodeModal';
 import { photoboothFrames, FrameCoord } from './constants';
 import { mergePhotosWithFrame, calculateFrameLayout } from './services/imageService';
-import { uploadImageAndGetData, getFirebaseInitializationPromise } from './services/firebaseService';
 
 type AppStatus = 'idle' | 'countdown' | 'capturing' | 'processing' | 'finished';
 
-const FirebaseErrorDisplay: React.FC<{ message: string }> = ({ message }) => (
-  <div className="w-full max-w-7xl bg-red-800 border-2 border-red-500 text-white p-4 rounded-lg shadow-lg mb-6 text-center">
-    <h3 className="font-bold text-xl mb-2">Firebase Connection Error</h3>
-    <p className="font-mono bg-red-900/50 p-3 rounded">{message}</p>
-  </div>
-);
+const GOOGLE_DRIVE_FOLDER = "https://drive.google.com/drive/folders/1KY_DPlWtR5q0aKfae5uVF53FDFFJoELL?usp=sharing";
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>('idle');
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([]);
   const [countdown, setCountdown] = useState<number | string | null>(null);
-  const [finalImageUrl, setFinalImageUrl] = useState<string | null>(null);
+  
+  // State for active frame
+  const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
   
   // State for dynamic frame layout
   const [activeFrameCoords, setActiveFrameCoords] = useState<FrameCoord[]>([]);
   const [frameDimensions, setFrameDimensions] = useState<{w: number, h: number}>({ w: 0, h: 0 });
   
-  const [isFirebaseReady, setIsFirebaseReady] = useState(false);
-  const [firebaseError, setFirebaseError] = useState<string | null>(null);
+  // State for timelapse video
+  const [timelapseUrl, setTimelapseUrl] = useState<string | null>(null);
+  
+  // State for QR Code
+  const [showQr, setShowQr] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
 
-  const currentFrame = photoboothFrames[0];
+  const currentFrame = photoboothFrames[currentFrameIndex];
 
-  // Calculate frame layout dynamically on load
+  // Frame Navigation Handlers
+  const nextFrame = useCallback(() => {
+    setCurrentFrameIndex((prev) => (prev + 1) % photoboothFrames.length);
+  }, []);
+
+  const prevFrame = useCallback(() => {
+    setCurrentFrameIndex((prev) => (prev - 1 + photoboothFrames.length) % photoboothFrames.length);
+  }, []);
+
+  // Calculate frame layout dynamically on load or when frame changes
   useEffect(() => {
     const analyzeFrame = async () => {
       try {
@@ -47,35 +55,32 @@ const App: React.FC = () => {
         console.log("Calculated Frame Layout:", layout);
       } catch (err) {
         console.error("Failed to analyze frame:", err);
-        // Fallback to hardcoded if calculation fails (optional, relying on calc here)
+        // Fallback to hardcoded if calculation fails
         setActiveFrameCoords(currentFrame.coords); 
       }
     };
     analyzeFrame();
   }, [currentFrame]);
 
+  // Cleanup timelapse URL on unmount or when changed
   useEffect(() => {
-    // Initialize Firebase when the app loads.
-    getFirebaseInitializationPromise()
-      .then(() => {
-        setIsFirebaseReady(true);
-      })
-      .catch((error) => {
-        let userFriendlyError: string;
-        if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/admin-restricted-operation') {
-            userFriendlyError = 'ACTION REQUIRED: Anonymous sign-in is not enabled. Please go to your Firebase Console (Authentication -> Sign-in method) and enable the "Anonymous" provider.';
-        } else {
-            userFriendlyError = `An unexpected Firebase error occurred: ${error.message}`;
-        }
-        setFirebaseError(userFriendlyError);
-      });
-  }, []);
+    return () => {
+      if (timelapseUrl) {
+        URL.revokeObjectURL(timelapseUrl);
+      }
+    };
+  }, [timelapseUrl]);
 
   const startTimelapse = useCallback(() => {
     if (videoRef.current && videoRef.current.srcObject) {
       recordedChunksRef.current = [];
       const stream = videoRef.current.srcObject as MediaStream;
-      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      try {
+        mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'video/webm' });
+      } catch (e) {
+        // Fallback for Safari/older browsers if webm isn't supported
+        mediaRecorderRef.current = new MediaRecorder(stream);
+      }
 
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -86,13 +91,7 @@ const App: React.FC = () => {
       mediaRecorderRef.current.onstop = () => {
         const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `hamic-photobooth-timelapse.webm`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        setTimelapseUrl(url); // Store the URL instead of downloading immediately
         recordedChunksRef.current = [];
       };
 
@@ -128,6 +127,7 @@ const App: React.FC = () => {
   const startPhotoSequence = useCallback(async () => {
     setStatus('capturing');
     setCapturedPhotos([]);
+    setTimelapseUrl(null); // Clear previous video
     startTimelapse();
 
     // Use the detected number of slots, or default to 4
@@ -166,45 +166,46 @@ const App: React.FC = () => {
       return;
     }
 
-    // Immediately show the modal in a loading state to provide instant feedback.
-    if (isFirebaseReady) {
-      setFinalImageUrl('loading');
-    }
-    
     setStatus('processing');
     
     try {
-      // Use the dynamically calculated coordinates
-      const { blob, dataUrl } = await mergePhotosWithFrame(capturedPhotos, currentFrame.frame_content, activeFrameCoords);
+      // 1. Download Photo Strip Locally
+      const { dataUrl } = await mergePhotosWithFrame(capturedPhotos, currentFrame.frame_content, activeFrameCoords);
       
-      const link = document.createElement('a');
-      link.download = `hamic-photobooth-${currentFrame.topic}.png`;
-      link.href = dataUrl;
-      link.click();
+      const imageLink = document.createElement('a');
+      imageLink.download = `hamic-photobooth-${currentFrame.topic}-${Date.now()}.png`;
+      imageLink.href = dataUrl;
+      document.body.appendChild(imageLink);
+      imageLink.click();
+      document.body.removeChild(imageLink);
 
-      if (isFirebaseReady) {
-        const firebaseUrl = await uploadImageAndGetData(blob, currentFrame);
-        if (firebaseUrl) {
-          setFinalImageUrl(firebaseUrl);
-        } else {
-          setFinalImageUrl(null);
-        }
-      } else {
-        alert("Firebase not configured or failed to initialize. The QR code feature is unavailable. Your photo has been saved locally.");
+      // 2. Download Timelapse Video Locally (if available)
+      if (timelapseUrl) {
+        setTimeout(() => {
+          const videoLink = document.createElement('a');
+          videoLink.download = `hamic-photobooth-timelapse-${Date.now()}.webm`;
+          videoLink.href = timelapseUrl;
+          document.body.appendChild(videoLink);
+          videoLink.click();
+          document.body.removeChild(videoLink);
+        }, 500);
       }
+
+      // 3. Show QR Code for Google Drive Folder
+      setShowQr(true);
+
     } catch (error) {
-      console.error("Error during download/upload process:", error);
-      alert("An error occurred while processing the image.");
-      setFinalImageUrl(null);
+      console.error("Error during download process:", error);
+      alert("An error occurred while generating the image.");
     } finally {
       setStatus('finished');
     }
-  }, [capturedPhotos, isFirebaseReady, activeFrameCoords, currentFrame]);
+  }, [capturedPhotos, activeFrameCoords, currentFrame, timelapseUrl]);
 
   const reset = () => {
       setCapturedPhotos([]);
+      setTimelapseUrl(null);
       setStatus('idle');
-      setFinalImageUrl(null);
   };
 
   return (
@@ -212,8 +213,6 @@ const App: React.FC = () => {
       <h1 className="font-pacifico text-[#FDEFB2] text-4xl sm:text-5xl mb-6 text-shadow-lg text-center">
         HAMIC'S PHOTOBOOTH
       </h1>
-
-      {firebaseError && <FirebaseErrorDisplay message={firebaseError} />}
 
       <main className="flex flex-col lg:flex-row items-start justify-center gap-8 w-full max-w-7xl">
         <WebcamView 
@@ -227,6 +226,8 @@ const App: React.FC = () => {
           topic={currentFrame.topic}
           coords={activeFrameCoords}
           frameDimensions={frameDimensions}
+          onNext={nextFrame}
+          onPrev={prevFrame}
         />
       </main>
 
@@ -235,13 +236,12 @@ const App: React.FC = () => {
         onStart={startPhotoSequence}
         onDownload={handleDownload}
         onReset={reset}
-        isFirebaseReady={isFirebaseReady}
       />
 
-      {finalImageUrl && (
+      {showQr && (
         <QrCodeModal 
-          url={finalImageUrl} 
-          onClose={() => setFinalImageUrl(null)} 
+          url={GOOGLE_DRIVE_FOLDER}
+          onClose={() => setShowQr(false)}
         />
       )}
 
