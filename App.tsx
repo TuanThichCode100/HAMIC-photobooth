@@ -6,6 +6,7 @@ import { Controls } from './components/Controls';
 import { QrCodeModal } from './components/QrCodeModal';
 import { photoboothFrames, FrameCoord } from './constants';
 import { mergePhotosWithFrame, calculateFrameLayout } from './services/imageService';
+import { saveBlobToDirectory } from './services/fileSystemService';
 
 type AppStatus = 'idle' | 'countdown' | 'capturing' | 'processing' | 'finished';
 
@@ -25,6 +26,7 @@ const App: React.FC = () => {
   
   // State for timelapse video
   const [timelapseUrl, setTimelapseUrl] = useState<string | null>(null);
+  const [timelapseBlob, setTimelapseBlob] = useState<Blob | null>(null);
   
   // State for QR Code
   const [showQr, setShowQr] = useState(false);
@@ -91,7 +93,8 @@ const App: React.FC = () => {
       mediaRecorderRef.current.onstop = () => {
         const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
         const url = URL.createObjectURL(blob);
-        setTimelapseUrl(url); // Store the URL instead of downloading immediately
+        setTimelapseUrl(url); // Store the URL for preview
+        setTimelapseBlob(blob); // keep blob so we can write it to disk later
         recordedChunksRef.current = [];
       };
 
@@ -169,18 +172,42 @@ const App: React.FC = () => {
     setStatus('processing');
     
     try {
-      // 1. Download Photo Strip Locally
-      const { dataUrl } = await mergePhotosWithFrame(capturedPhotos, currentFrame.frame_content, activeFrameCoords);
-      
-      const imageLink = document.createElement('a');
-      imageLink.download = `hamic-photobooth-${currentFrame.topic}-${Date.now()}.png`;
-      imageLink.href = dataUrl;
-      document.body.appendChild(imageLink);
-      imageLink.click();
-      document.body.removeChild(imageLink);
+      // 1. Generate final photo strip
+      const { blob, dataUrl } = await mergePhotosWithFrame(capturedPhotos, currentFrame.frame_content, activeFrameCoords);
+      const imageFilename = `hamic-photobooth-${currentFrame.topic}-${Date.now()}.png`;
+
+      try {
+        await saveBlobToDirectory(blob, imageFilename);
+      } catch (err) {
+        console.error('Failed to save image to directory, falling back to download anchor', err);
+        const imageLink = document.createElement('a');
+        imageLink.download = imageFilename;
+        imageLink.href = dataUrl;
+        document.body.appendChild(imageLink);
+        imageLink.click();
+        document.body.removeChild(imageLink);
+      }
 
       // 2. Download Timelapse Video Locally (if available)
-      if (timelapseUrl) {
+      if (timelapseBlob) {
+        const videoFilename = `hamic-photobooth-timelapse-${Date.now()}.webm`;
+        try {
+          await saveBlobToDirectory(timelapseBlob, videoFilename);
+        } catch (err) {
+          console.error('Failed to save timelapse to directory, falling back to download anchor', err);
+          setTimeout(() => {
+            if (timelapseUrl) {
+              const videoLink = document.createElement('a');
+              videoLink.download = videoFilename;
+              videoLink.href = timelapseUrl;
+              document.body.appendChild(videoLink);
+              videoLink.click();
+              document.body.removeChild(videoLink);
+            }
+          }, 500);
+        }
+      } else if (timelapseUrl) {
+        // If for some reason we don't have the blob, fallback to anchor download
         setTimeout(() => {
           const videoLink = document.createElement('a');
           videoLink.download = `hamic-photobooth-timelapse-${Date.now()}.webm`;
