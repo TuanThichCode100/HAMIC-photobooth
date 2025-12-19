@@ -30,6 +30,6 @@ A feature-rich, browser-based 4-cut photobooth that simulates a professional pho
     - Cloud Storage to host the generated images.
     - Firestore to store metadata about the uploads.
 - **Deployment**: Can be deployed as a static web application on any modern hosting provider (e.g., Vercel, Netlify, Firebase Hosting).
-
+- **To design your own frames**, link to (https://www.canva.com/design/DAG2tlOl5Iw/cjaQVmnB0lagwPSjwcPtww/edit). After saving the frame, using (https://pixlr.com/remove-background/) to remove the background. Finally, add the background-remove picture to (https://www.base64-image.de/) to convert png picture to base64 picture and paste the base64 string into the `constants.ts` file with `topic`, `frame_content`, `number`, `coords`.
 ---
 *This project was created to demonstrate a fun and interactive web application using modern frontend technologies.*
