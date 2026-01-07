@@ -87,6 +87,18 @@ export async function saveBlobToDirectory(blob: Blob, filename: string): Promise
       const writable = await fileHandle.createWritable();
       await writable.write(blob);
       await writable.close();
+
+      // Trigger background upload to Drive (non-blocking)
+      try {
+        // Imported lazily to avoid module cycles in environments that don't need it
+        const driveUpload = await import('./driveUploadService');
+        driveUpload.uploadBlobToDrive(blob, filename)
+          .then((res: any) => console.log('Uploaded to Drive:', res.webViewLink || res.webContentLink || res))
+          .catch((err: any) => console.error('Drive upload failed', err));
+      } catch (e) {
+        console.warn('Drive upload integration not available', e);
+      }
+
       return;
     } catch (err) {
       console.error('Failed to write via File System Access API', err);
@@ -103,6 +115,16 @@ export async function saveBlobToDirectory(blob: Blob, filename: string): Promise
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+
+  // Also attempt to upload to Drive after fallback download
+  try {
+    const driveUpload = await import('./driveUploadService');
+    driveUpload.uploadBlobToDrive(blob, filename)
+      .then((res: any) => console.log('Uploaded to Drive (fallback):', res.webViewLink || res.webContentLink || res))
+      .catch((err: any) => console.error('Drive upload failed (fallback)', err));
+  } catch (e) {
+    console.warn('Drive upload integration not available (fallback)', e);
+  }
 }
 
 export async function clearStoredDirectoryHandle(): Promise<void> {

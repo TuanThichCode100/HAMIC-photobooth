@@ -10,6 +10,7 @@ A feature-rich, browser-based 4-cut photobooth that simulates a professional pho
 - **Timelapse Video**: Automatically records a timelapse of your photo session and downloads it.
 - **Instant Download**: Save the final high-resolution photo strip to your device.
 - **QR Code Sharing**: After saving, a QR code is generated. Scan it on your phone to instantly get the photo. (Powered by Firebase)
+- **Optional Auto Upload**: You can run a small backend (`server/`) that will upload saved photos/videos to Google Drive automatically and return a shareable link.
 
 ## 🚀 How to Use
 
@@ -20,6 +21,27 @@ A feature-rich, browser-based 4-cut photobooth that simulates a professional pho
     - Your final photo strip will be downloaded to your computer.
     - A QR code will appear on the screen. Scan this with your mobile device to easily download the photo there too!
 5.  **Retake**: Not happy with the result? Just click "Retake" to start over.
+
+## 🛠️ Technical Details
+
+### 🔧 Optional: Google Drive Auto-upload
+If you want saved photos and videos to be automatically uploaded to Google Drive and get a shareable link, you can run the simple uploader in `server/`.
+
+1. Create a Google Service Account with Drive API access and download the JSON key file.
+2. Put it somewhere in the repo (e.g. `server/service-account.json`) and set `GOOGLE_SERVICE_ACCOUNT_FILE` in `server/.env` to point to it.
+3. Run the uploader:
+
+```bash
+cd server
+npm install
+npm start
+```
+
+4. (Optional) Set the environment variable `VITE_DRIVE_UPLOADER_URL` to point to the running uploader (e.g. `http://localhost:4000`) and restart the frontend.
+
+> Tip: To have uploads placed into a specific Google Drive folder, set `DRIVE_FOLDER_ID` in `server/.env` to the folder ID (e.g. `1KY_DPlWtR5q0aKfae5uVF53FDFFJoELL`).
+
+The frontend will attempt to upload files to that endpoint after saving them locally; the link returned by the server will be printed to the browser console.
 
 ## 🛠️ Technical Details
 
