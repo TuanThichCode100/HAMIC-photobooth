@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount the Google Service Account from database folder directly
+      - ./database/service-account.json:/app/database/service-account.json
+    environment:
+      - PORT=5000
+      # Change this to your target Google Drive Folder ID
+      - DRIVE_FOLDER_ID=1KY_DPlWtR5q0aKfae5uVF53FDFFJoELL
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Build-time environment variable for Vite client integration.
+        # Change this to your production API URL if hosting on a public domain.
+        - VITE_API_URL=http://localhost:5000
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: always

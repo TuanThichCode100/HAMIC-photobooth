@@ -7,6 +7,7 @@ import { QrCodeModal } from './components/QrCodeModal';
 import { photoboothFrames, FrameCoord } from './constants';
 import { mergePhotosWithFrame, calculateFrameLayout } from './services/imageService';
 import { saveBlobToDirectory } from './services/fileSystemService';
+import { uploadToGoogleDrive } from './services/backendService';
 
 type AppStatus = 'idle' | 'countdown' | 'capturing' | 'processing' | 'finished';
 
@@ -30,6 +31,7 @@ const App: React.FC = () => {
   
   // State for QR Code
   const [showQr, setShowQr] = useState(false);
+  const [qrUrl, setQrUrl] = useState<string>(GOOGLE_DRIVE_FOLDER);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -218,7 +220,17 @@ const App: React.FC = () => {
         }, 500);
       }
 
-      // 3. Show QR Code for Google Drive Folder
+      // 3. Upload photo and timelapse to Google Drive
+      console.log('Uploading photo and timelapse to Google Drive...');
+      const uploadedUrl = await uploadToGoogleDrive(blob, timelapseBlob, currentFrame.topic);
+      if (uploadedUrl) {
+        setQrUrl(uploadedUrl);
+      } else {
+        console.warn('Failed to upload, falling back to static Drive folder.');
+        setQrUrl(GOOGLE_DRIVE_FOLDER);
+      }
+
+      // 4. Show QR Code
       setShowQr(true);
 
     } catch (error) {
@@ -227,7 +239,7 @@ const App: React.FC = () => {
     } finally {
       setStatus('finished');
     }
-  }, [capturedPhotos, activeFrameCoords, currentFrame, timelapseUrl]);
+  }, [capturedPhotos, activeFrameCoords, currentFrame, timelapseBlob, timelapseUrl]);
 
   const reset = () => {
       setCapturedPhotos([]);
@@ -267,7 +279,7 @@ const App: React.FC = () => {
 
       {showQr && (
         <QrCodeModal 
-          url={GOOGLE_DRIVE_FOLDER}
+          url={qrUrl}
           onClose={() => setShowQr(false)}
         />
       )}

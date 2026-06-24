@@ -55,7 +55,7 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({ url, onClose }) => {
           {/* QR Code will be rendered here by the script */}
         </div>
         <p className="text-sm text-gray-500 mb-4">
-           Your photos have been saved to your device. Scan this to open the Google Drive folder.
+          Quét mã QR này bằng điện thoại để xem và tải ảnh chụp của bạn trực tiếp từ Google Drive nhé!
         </p>
         <button
           onClick={onClose}

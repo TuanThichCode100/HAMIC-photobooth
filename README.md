@@ -11,6 +11,21 @@ A feature-rich, browser-based 4-cut photobooth that simulates a professional pho
 - **Instant Download**: Save the final high-resolution photo strip to your device.
 - **QR Code Sharing**: After saving, a QR code is generated. Scan it on your phone to instantly get the photo. (Powered by Firebase)
 
+## 🛠️ Installation & Setup (Docker)
+
+To run the application, make sure you have [Docker](https://www.docker.com/) and Docker Compose installed.
+
+1. Place your Google Service Account credentials file (`service-account.json`) in the [database/](file:///d:/Mini%20Project/HAMIC%20photobooth/HAMIC-photobooth/database) directory.
+2. Build and start the services using Docker Compose:
+
+   ```bash
+   docker-compose up --build
+   ```
+
+Once the containers are running:
+- **Frontend**: Access it at [http://localhost:3000](http://localhost:3000)
+- **Backend**: API server is running at [http://localhost:5000](http://localhost:5000)
+
 ## 🚀 How to Use
 
 1.  **Allow Camera Access**: When the page loads, your browser will ask for permission to use your camera. Please allow it.
