@@ -11,9 +11,9 @@ export interface UploadResponse {
 
 /**
  * Uploads the final photo strip and optional timelapse video to the backend.
- * Returns the public webViewLink from Google Drive on success, or null on failure.
+ * Returns the public image URL from ImgBB on success, or null on failure.
  */
-export const uploadToGoogleDrive = async (
+export const uploadToBackend = async (
   photoBlob: Blob,
   timelapseBlob: Blob | null,
   frameTopic: string
@@ -39,7 +39,7 @@ export const uploadToGoogleDrive = async (
 
     const data: UploadResponse = await response.json();
     if (data.success && data.urls.photo) {
-      console.log('Upload to Google Drive successful:', data.urls.photo);
+      console.log('Upload to backend successful:', data.urls.photo);
       return data.urls.photo;
     } else {
       console.error('Backend upload response indicated failure:', data.error);

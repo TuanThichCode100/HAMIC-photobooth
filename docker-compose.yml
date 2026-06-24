@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build:
@@ -7,13 +5,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
-    volumes:
-      # Mount the Google Service Account from database folder directly
-      - ./database/service-account.json:/app/database/service-account.json
     environment:
       - PORT=5000
-      # Change this to your target Google Drive Folder ID
-      - DRIVE_FOLDER_ID=1KY_DPlWtR5q0aKfae5uVF53FDFFJoELL
+      - IMGBB_API_KEY=7197452aa7f7eb17791bc0e10c7c8977
     restart: always
 
   frontend:

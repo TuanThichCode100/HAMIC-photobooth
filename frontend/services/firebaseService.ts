@@ -68,12 +68,15 @@ export const uploadImageAndGetData = async (
     const snapshot = await uploadBytes(storageRef, blob);
     const downloadURL = await getDownloadURL(snapshot.ref);
 
-    await addDoc(collection(db, "photobooth_uploads"), {
+    // Save metadata to Firestore asynchronously (non-blocking)
+    addDoc(collection(db, "photobooth_uploads"), {
       storagePath: snapshot.ref.fullPath,
       downloadURL,
       createdAt: new Date(),
       frameTopic: frame.topic,
       frameNumber: frame.number,
+    }).catch(fsError => {
+      console.error("Firestore metadata write failed (non-blocking):", fsError);
     });
 
     return downloadURL;

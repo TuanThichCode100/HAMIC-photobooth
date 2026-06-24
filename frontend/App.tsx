@@ -7,7 +7,7 @@ import { QrCodeModal } from './components/QrCodeModal';
 import { photoboothFrames, FrameCoord } from './constants';
 import { mergePhotosWithFrame, calculateFrameLayout } from './services/imageService';
 import { saveBlobToDirectory } from './services/fileSystemService';
-import { uploadToGoogleDrive } from './services/backendService';
+import { uploadToBackend } from './services/backendService';
 
 type AppStatus = 'idle' | 'countdown' | 'capturing' | 'processing' | 'finished';
 
@@ -220,9 +220,9 @@ const App: React.FC = () => {
         }, 500);
       }
 
-      // 3. Upload photo and timelapse to Google Drive
-      console.log('Uploading photo and timelapse to Google Drive...');
-      const uploadedUrl = await uploadToGoogleDrive(blob, timelapseBlob, currentFrame.topic);
+      // 3. Upload photo and timelapse to backend (ImgBB)
+      console.log('Uploading photo and timelapse to ImgBB via backend...');
+      const uploadedUrl = await uploadToBackend(blob, timelapseBlob, currentFrame.topic);
       if (uploadedUrl) {
         setQrUrl(uploadedUrl);
       } else {

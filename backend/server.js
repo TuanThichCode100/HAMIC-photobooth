@@ -1,16 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const { google } = require('googleapis');
-const { Readable } = require('stream');
 const path = require('path');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Target Google Drive Folder where photos will be stored
-const DRIVE_FOLDER_ID = process.env.DRIVE_FOLDER_ID || '1KY_DPlWtR5q0aKfae5uVF53FDFFJoELL';
+// ImgBB API Key
+const IMGBB_API_KEY = process.env.IMGBB_API_KEY || '7197452aa7f7eb17791bc0e10c7c8977';
 
 // Enable CORS for frontend requests
 app.use(cors());
@@ -24,25 +22,12 @@ const upload = multer({
   },
 });
 
-// Load Google Drive API service using Service Account credentials
-const getDriveService = () => {
-  const KEY_FILE = path.join(__dirname, '../database/service-account.json');
-  console.log(`Loading service account key from: ${KEY_FILE}`);
-  
-  const auth = new google.auth.GoogleAuth({
-    keyFile: KEY_FILE,
-    scopes: ['https://www.googleapis.com/auth/drive'],
-  });
-  
-  return google.drive({ version: 'v3', auth });
-};
-
 // Healthcheck endpoint
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date(),
-    driveFolderId: DRIVE_FOLDER_ID 
+    uploader: 'ImgBB'
   });
 });
 
@@ -59,83 +44,39 @@ app.post('/api/upload', upload.fields([
       return res.status(400).json({ error: 'No photo file uploaded.' });
     }
 
-    const driveService = getDriveService();
     const uploadedUrls = {};
 
-    // 1. Upload photo strip to Google Drive
-    const photoName = `hamic-photo-${Date.now()}.png`;
-    const photoMetadata = {
-      name: photoName,
-      parents: [DRIVE_FOLDER_ID],
-    };
-    const photoMedia = {
-      mimeType: photoFile.mimetype,
-      body: Readable.from(photoFile.buffer),
-    };
+    // 1. Convert photo buffer to Base64 and upload to ImgBB
+    console.log('Uploading photo to ImgBB...');
+    const base64Photo = photoFile.buffer.toString('base64');
     
-    console.log(`Uploading photo: ${photoName} to Google Drive folder: ${DRIVE_FOLDER_ID}`);
-    const photoDriveRes = await driveService.files.create({
-      requestBody: photoMetadata,
-      media: photoMedia,
-      fields: 'id, webViewLink, webContentLink',
-    });
-    
-    const photoFileId = photoDriveRes.data.id;
-    console.log(`Photo uploaded successfully. File ID: ${photoFileId}`);
+    const formData = new URLSearchParams();
+    formData.append('image', base64Photo);
 
-    // Grant public read permission to the photo so users can view it via QR Code
-    try {
-      await driveService.permissions.create({
-        fileId: photoFileId,
-        requestBody: {
-          role: 'reader',
-          type: 'anyone',
-        },
-      });
-      uploadedUrls.photo = photoDriveRes.data.webViewLink;
-      console.log(`Granted public access for photo. Link: ${uploadedUrls.photo}`);
-    } catch (permError) {
-      console.error('Error setting public permissions on photo file:', permError);
-      // Fallback to returned webViewLink
-      uploadedUrls.photo = photoDriveRes.data.webViewLink;
+    const imgbbRes = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!imgbbRes.ok) {
+      const errText = await imgbbRes.text();
+      console.error('ImgBB API failed response:', errText);
+      throw new Error(`ImgBB upload failed with status ${imgbbRes.status}`);
     }
 
-    // 2. Upload timelapse video if exists
+    const imgbbData = await imgbbRes.json();
+    if (!imgbbData.success) {
+      console.error('ImgBB upload was unsuccessful:', imgbbData);
+      throw new Error(imgbbData.error ? imgbbData.error.message : 'Unknown ImgBB error');
+    }
+
+    uploadedUrls.photo = imgbbData.data.url;
+    console.log(`Photo uploaded successfully to ImgBB. URL: ${uploadedUrls.photo}`);
+
+    // 2. ImgBB only supports images, so we skip uploading the timelapse video to the cloud
     if (timelapseFile) {
-      const timelapseName = `hamic-timelapse-${Date.now()}.webm`;
-      const timelapseMetadata = {
-        name: timelapseName,
-        parents: [DRIVE_FOLDER_ID],
-      };
-      const timelapseMedia = {
-        mimeType: timelapseFile.mimetype,
-        body: Readable.from(timelapseFile.buffer),
-      };
-      
-      console.log(`Uploading timelapse video: ${timelapseName}`);
-      const timelapseDriveRes = await driveService.files.create({
-        requestBody: timelapseMetadata,
-        media: timelapseMedia,
-        fields: 'id, webViewLink',
-      });
-      
-      const timelapseFileId = timelapseDriveRes.data.id;
-      
-      // Grant public read permission to the timelapse video
-      try {
-        await driveService.permissions.create({
-          fileId: timelapseFileId,
-          requestBody: {
-            role: 'reader',
-            type: 'anyone',
-          },
-        });
-        uploadedUrls.timelapse = timelapseDriveRes.data.webViewLink;
-        console.log(`Granted public access for timelapse. Link: ${uploadedUrls.timelapse}`);
-      } catch (permError) {
-        console.error('Error setting public permissions on timelapse file:', permError);
-        uploadedUrls.timelapse = timelapseDriveRes.data.webViewLink;
-      }
+      console.log('Skipping timelapse video upload to ImgBB (unsupported format).');
+      uploadedUrls.timelapse = null; // Video will still be saved locally by the frontend
     }
 
     // Return uploaded links to frontend
@@ -147,7 +88,7 @@ app.post('/api/upload', upload.fields([
   } catch (error) {
     console.error('Upload process failed:', error);
     res.status(500).json({
-      error: 'Failed to upload files to Google Drive.',
+      error: 'Failed to upload photo to ImgBB.',
       details: error.message
     });
   }
@@ -156,5 +97,5 @@ app.post('/api/upload', upload.fields([
 // Start the server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
-  console.log(`Google Drive Folder ID configured: ${DRIVE_FOLDER_ID}`);
+  console.log(`ImgBB Uploader initialized.`);
 });

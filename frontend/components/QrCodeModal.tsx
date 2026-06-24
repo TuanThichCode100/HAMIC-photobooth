@@ -49,13 +49,13 @@ export const QrCodeModal: React.FC<QrCodeModalProps> = ({ url, onClose }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-2xl font-bold mb-4">
-          Scan to open Drive Folder
+          Photo Booth QR Code
         </h3>
         <div ref={qrCodeRef} className="p-2 bg-white rounded-lg inline-block mb-6 w-[272px] h-[272px] flex items-center justify-center border-2 border-dashed border-gray-300">
           {/* QR Code will be rendered here by the script */}
         </div>
-        <p className="text-sm text-gray-500 mb-4">
-          Quét mã QR này bằng điện thoại để xem và tải ảnh chụp của bạn trực tiếp từ Google Drive nhé!
+        <p className="text-sm text-gray-600 mb-6 leading-relaxed">
+          Đây là mã QR để xem ảnh photobooth (giữ ảnh để tải về), còn ảnh gốc và video sẽ được đăng tải trên fanpage CLB Toán - Tin HAMIC sau sự kiện sớm nhất có thể để bạn lưu về. Nhớ follow fanpage để nhận được tin tức mới nhất nhé!
         </p>
         <button
           onClick={onClose}
