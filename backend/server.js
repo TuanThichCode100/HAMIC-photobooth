@@ -52,6 +52,7 @@ app.post('/api/upload', upload.fields([
     
     const formData = new URLSearchParams();
     formData.append('image', base64Photo);
+    formData.append('expiration', '600');
 
     const imgbbRes = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
       method: 'POST',
