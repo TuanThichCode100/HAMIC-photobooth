@@ -8,6 +8,7 @@ interface ControlsProps {
   onStart: () => void;
   onDownload: () => void;
   onReset: () => void;
+  disabled?: boolean;
 }
 
 const ActionButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (props) => (
@@ -17,13 +18,13 @@ const ActionButton: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>> = (p
   />
 );
 
-export const Controls: React.FC<ControlsProps> = ({ status, onStart, onDownload, onReset }) => {
+export const Controls: React.FC<ControlsProps> = ({ status, onStart, onDownload, onReset, disabled = false }) => {
   const isBusy = status === 'countdown' || status === 'capturing' || status === 'processing';
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8 w-full max-w-xl">
       {status !== 'finished' ? (
-        <ActionButton onClick={onStart} disabled={isBusy}>
+        <ActionButton onClick={onStart} disabled={isBusy || disabled}>
           {isBusy ? 'Capturing...' : 'Start'}
         </ActionButton>
       ) : (
@@ -31,7 +32,7 @@ export const Controls: React.FC<ControlsProps> = ({ status, onStart, onDownload,
           Retake
         </ActionButton>
       )}
-      <ActionButton onClick={onDownload} disabled={status !== 'finished'}>
+      <ActionButton onClick={onDownload} disabled={status !== 'finished' || disabled}>
         {status === 'processing' ? 'Processing...' : 'Save'}
       </ActionButton>
     </div>

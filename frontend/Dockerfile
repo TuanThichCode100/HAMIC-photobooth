@@ -2,10 +2,11 @@ FROM node:18-alpine AS build
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+COPY frontend/package*.json ./
+RUN npm ci
 
-COPY . .
+COPY frontend/ .
+COPY assets/ /assets/
 
 # Accept build arguments for Vite compilation
 ARG VITE_API_URL

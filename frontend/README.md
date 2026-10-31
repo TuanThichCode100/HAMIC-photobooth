@@ -30,4 +30,10 @@ Frontend giao tiếp với backend để tải ảnh lên và lấy URL ảnh ph
   * `backendService.ts`: Chứa hàm `uploadToBackend` gửi dữ liệu ảnh chụp lên backend Express để đẩy lên ImgBB.
   * `imageService.ts`: Hàm xử lý ghép 4 ảnh đã chụp vào khung hình (frame) được chọn.
   * `fileSystemService.ts`: Hàm lưu trực tiếp tệp ảnh và video timelapse về máy cục bộ.
-* `constants.ts`: Định nghĩa danh sách các khung ảnh photobooth (base64 PNG) kèm tọa độ vẽ ảnh.
+* `constants.ts`: Định nghĩa danh sách các khung ảnh PNG kèm tọa độ dự phòng. Frame HAMIC K71 được lấy từ `../assets/hamic_frames_transparent.png`; các frame cũ ở `public/frames/`.
+
+## Chạy không cần backend
+
+Không đặt `VITE_API_URL` để dùng chụp ảnh và tải về máy mà không gọi API. Chỉ cấu hình URL này khi cần upload và chia sẻ QR. Xem [hướng dẫn tại thư mục gốc](../README.md) để chạy bằng Python hoặc `npm run dev` từ root.
+
+Sau khi sửa frontend, chạy `npm run build:static` tại root để cập nhật bản tĩnh trong `site/`.

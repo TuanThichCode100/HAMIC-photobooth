@@ -10,6 +10,40 @@ A feature-rich, browser-based 4-cut photobooth that simulates a professional pho
 - **Instant Download**: Save the final high-resolution photo strip to your device.
 - **QR Code Sharing**: After saving, a QR code is generated. Scan it on your phone to instantly get the photo (Powered by ImgBB).
 
+## Chạy nhanh bằng Python (không cần Node.js hoặc Docker)
+
+Tại thư mục gốc của repository:
+
+```bash
+python -m http.server 8000
+```
+
+Mở **http://localhost:8000** và cho phép truy cập camera. Trang gốc sẽ mở bản web tĩnh có sẵn trong `site/`. Có thể phục vụ riêng bản tĩnh bằng `python -m http.server 8000 --directory site`.
+
+Frame **HAMIC K71** từ `assets/hamic_frames_transparent.png` là frame mặc định, có **3 ô ảnh**. Các frame cũ vẫn chọn được bằng nút mũi tên. Số lần chụp tự điều chỉnh theo số ô của frame.
+
+Chụp ảnh, ghép frame, tải PNG và video hoạt động không cần backend. Mã QR chia sẻ cần backend; bản tĩnh mặc định chỉ lưu về máy. Giao diện hiện dùng Tailwind/font và bộ lọc OpenCV/MediaPipe qua CDN nên cần Internet để tải các tài nguyên này. Dùng `localhost` khi chạy trên máy; truy cập camera từ thiết bị khác cần HTTPS.
+
+## Phát triển bằng npm
+
+Chạy ngay tại thư mục gốc:
+
+```bash
+npm install
+npm run dev
+```
+
+Mở **http://localhost:3000**. Sau khi sửa mã nguồn hoặc frame, cập nhật bản Python phục vụ bằng:
+
+```bash
+npm run typecheck
+npm run build:static
+```
+
+`site/` là bản build được lưu cùng repository để người dùng Python không phải cài npm. Cần cập nhật thư mục này khi thay đổi frontend. `npm run build` vẫn tạo bản build thông thường ở `frontend/dist/`.
+
+Để bật chia sẻ QR, chạy backend theo [backend/README.md](backend/README.md), tạo `frontend/.env.local` với `VITE_API_URL=http://localhost:5000`, rồi khởi động lại dev server hoặc build lại bản tĩnh. Docker Compose đã cấu hình URL này sẵn.
+
 ## 🛠️ Installation & Setup (Docker)
 
 To run the application, make sure you have [Docker](https://www.docker.com/) and Docker Compose installed.
@@ -44,6 +78,6 @@ Once the containers are running:
     - Uploads the photo strip to **ImgBB** to retrieve a public image sharing link.
     - Serves health status checks.
 - **Deployment**: Can be deployed using Docker containers.
-- **To design your own frames**, link to (https://www.canva.com/design/DAG2tlOl5Iw/cjaQVmnB0lagwPSjwcPtww/edit). After saving the frame, using (https://pixlr.com/remove-background/) to remove the background. Finally, add the background-remove picture to (https://www.base64-image.de/) to convert png picture to base64 picture and paste the base64 string into the `constants.ts` file with `topic`, `frame_content`, `number`, `coords`.
+- **To add your own frames**, place a transparent PNG in `assets/`, reference it with `new URL('../assets/your-frame.png', import.meta.url).href` in `frontend/constants.ts`, and add its `topic`, `frame_content`, `number`, and fallback `coords`. The app detects transparent photo slots automatically. Run `npm run build:static` to refresh the Python version. Existing frames live in `frontend/public/frames/`.
 ---
 *This project was created to demonstrate a fun and interactive web application using modern frontend technologies.*

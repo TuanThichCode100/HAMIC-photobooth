@@ -12,8 +12,8 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
         # Build-time environment variable for Vite client integration.
         # Change this to your production API URL if hosting on a public domain.

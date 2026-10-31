@@ -31,6 +31,15 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Upload speed test probe endpoint (lightweight, no disk/cloud storage)
+app.post('/api/ping-upload', express.raw({ type: 'application/octet-stream', limit: '1mb' }), (req, res) => {
+  res.json({
+    status: 'ok',
+    bytesReceived: req.body ? req.body.length : 0,
+    timestamp: Date.now()
+  });
+});
+
 // Upload endpoint
 app.post('/api/upload', upload.fields([
   { name: 'photo', maxCount: 1 },
@@ -52,6 +61,7 @@ app.post('/api/upload', upload.fields([
     
     const formData = new URLSearchParams();
     formData.append('image', base64Photo);
+    formData.append('expiration', '600');
 
     const imgbbRes = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
       method: 'POST',

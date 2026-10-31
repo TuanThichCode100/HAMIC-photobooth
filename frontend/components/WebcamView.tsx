@@ -17,14 +17,24 @@ export const WebcamView = forwardRef<HTMLVideoElement, WebcamViewProps>(({ count
     const setupWebcam = async () => {
       setError(null);
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: "user"
-          },
-          audio: false
-        });
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              facingMode: "user"
+            },
+            audio: false
+          });
+        } catch (initialErr: any) {
+          console.warn("Initial getUserMedia failed (possibly due to virtual camera constraints). Trying fallback...", initialErr);
+          // Fallback for OBS Virtual Camera and others that might reject specific constraints
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false
+          });
+        }
+        
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }

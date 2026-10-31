@@ -1,4 +1,5 @@
-const BACKEND_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:5000';
+export const BACKEND_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') || '';
+export const isSharingEnabled = Boolean(BACKEND_URL);
 
 export interface UploadResponse {
   success: boolean;
@@ -18,6 +19,7 @@ export const uploadToBackend = async (
   timelapseBlob: Blob | null,
   frameTopic: string
 ): Promise<string | null> => {
+  if (!isSharingEnabled) return null;
   const formData = new FormData();
   formData.append('photo', photoBlob, `photo-${frameTopic}-${Date.now()}.png`);
   

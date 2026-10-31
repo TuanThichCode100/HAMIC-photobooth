@@ -11,6 +11,7 @@ interface PhotoStripProps {
   frameDimensions: { w: number, h: number };
   onNext: () => void;
   onPrev: () => void;
+  disabled?: boolean;
 }
 
 export const PhotoStrip: React.FC<PhotoStripProps> = ({ 
@@ -20,7 +21,8 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({
   coords, 
   frameDimensions,
   onNext,
-  onPrev
+  onPrev,
+  disabled = false
 }) => {
   
   // Calculate styles for each photo slot based on the frame dimensions
@@ -40,6 +42,7 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({
       <div className="flex items-center justify-between w-full mb-4 text-[#FDEFB2]">
         <button 
           onClick={onPrev}
+          disabled={disabled}
           className="p-2 rounded-full hover:bg-white/10 transition-colors"
           aria-label="Previous Frame"
         >
@@ -52,6 +55,7 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({
         </h2>
         <button 
           onClick={onNext}
+          disabled={disabled}
           className="p-2 rounded-full hover:bg-white/10 transition-colors"
           aria-label="Next Frame"
         >
@@ -98,12 +102,14 @@ export const PhotoStrip: React.FC<PhotoStripProps> = ({
       <div className="flex gap-2 mt-4">
          <button 
             onClick={onPrev} 
+            disabled={disabled}
             className="p-2 bg-gray-800 hover:bg-gray-700 rounded-full transition-colors text-white/80"
          >
             <ArrowUpIcon />
          </button>
          <button 
             onClick={onNext} 
+            disabled={disabled}
             className="p-2 bg-gray-800 hover:bg-gray-700 rounded-full transition-colors text-white/80"
          >
             <ArrowDownIcon />

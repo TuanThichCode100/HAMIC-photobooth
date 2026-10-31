@@ -1,0 +1,11 @@
+{
+  "name": "hamic-photobooth-workspace",
+  "private": true,
+  "scripts": {
+    "postinstall": "npm --prefix frontend ci",
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "build:static": "npm --prefix frontend run build -- --outDir ../site --emptyOutDir",
+    "typecheck": "npm --prefix frontend exec -- tsc --noEmit -p frontend/tsconfig.json"
+  }
+}
